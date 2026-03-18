@@ -264,16 +264,15 @@ main { flex: 1; padding: 20px; max-width: 600px; margin: 0 auto; width: 100%; }
 #yt-container {
   background: #000;
   flex-shrink: 0;
-  position: relative;
   width: 100%;
-  padding-top: 56.25%; /* 16:9 */
+  aspect-ratio: 16 / 9;
+  max-height: 50vh; /* en PC no ocupa más de la mitad de la pantalla */
 }
 #yt-container iframe,
 #yt-container > div {
-  position: absolute !important;
-  inset: 0;
   width: 100% !important;
   height: 100% !important;
+  display: block;
 }
 
 #player-info {
@@ -480,6 +479,11 @@ main { flex: 1; padding: 20px; max-width: 600px; margin: 0 auto; width: 100%; }
   </div>
 </div>
 
+<!-- DATALISTS para autocomplete -->
+<datalist id="dl-genre"></datalist>
+<datalist id="dl-mood"></datalist>
+<datalist id="dl-origen"></datalist>
+
 <div id="toast"></div>
 
 <script>
@@ -572,6 +576,23 @@ function cargarBiblioteca(data) {
     document.getElementById('btn-export-hist').disabled = false;
     document.getElementById('header-status').innerHTML  = `<b>${ids.length}</b> canciones`;
     toast(`✓ Biblioteca cargada — ${ids.length} canciones`);
+    poblarDataLists();
+}
+
+function poblarDataLists() {
+    const genSet = new Set(), moodSet = new Set(), oriSet = new Set();
+    Object.values(db).forEach(s => {
+        (s.genre  || '').split(',').map(t=>t.trim()).filter(Boolean).forEach(t => genSet.add(t));
+        (s.mood   || '').split(',').map(t=>t.trim()).filter(Boolean).forEach(t => moodSet.add(t));
+        (s.origen || '').split(',').map(t=>t.trim()).filter(Boolean).forEach(t => oriSet.add(t));
+    });
+    const fill = (id, set) => {
+        const dl = document.getElementById(id);
+        dl.innerHTML = [...set].sort().map(v => `<option value="${v}">`).join('');
+    };
+    fill('dl-genre',  genSet);
+    fill('dl-mood',   moodSet);
+    fill('dl-origen', oriSet);
 }
 
 document.getElementById('file-input').onchange = e => {
@@ -609,10 +630,10 @@ function addRule(gen='', mood='', ori='', qty='') {
             <button class="btn-del-rule" title="Eliminar">✕</button>
         </div>
         <div class="rule-fields">
-            <input type="text" placeholder="Género" value="${gen}" class="r-gen">
-            <input type="text" placeholder="Mood"   value="${mood}" class="r-mood">
-            <input type="text" placeholder="Origen" value="${ori}" class="r-ori">
-            <input type="number" placeholder="Cant. (vacío = todo)" value="${qty}" class="r-qty full">
+            <input type="text" placeholder="Género" value="${gen}" class="r-gen" list="dl-genre" autocomplete="off">
+            <input type="text" placeholder="Mood"   value="${mood}" class="r-mood" list="dl-mood" autocomplete="off">
+            <input type="text" placeholder="Origen" value="${ori}"  class="r-ori" list="dl-origen" autocomplete="off">
+            <input type="number" placeholder="Cant. (vacío = todo)" value="${qty}" class="r-qty full" min="0" step="1">
         </div>`;
     div.querySelector('.btn-del-rule').onclick = () => div.remove();
     document.getElementById('rules-container').appendChild(div);
