@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Smart Tagger · Mix</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg:       #0e0e0f;
+  --surface:  #18181b;
+  --card:     #1f1f23;
+  --border:   #2a2a30;
+  --accent:   #3ea6ff;
+  --accent2:  #a78bfa;
+  --red:      #ef4444;
+  --green:    #22c55e;
+  --text:     #f4f4f5;
+  --muted:    #71717a;
+  --mono:     'Space Mono', monospace;
+  --sans:     'DM Sans', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100dvh;
+  overscroll-behavior: none;
+}
+
+/* ── LAYOUT ── */
+#app { display: flex; flex-direction: column; min-height: 100dvh; }
+
+header {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(14,14,15,0.92);
+  backdrop-filter: blur(12px);
+}
+header .logo {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: .08em;
+  color: var(--accent);
+  line-height: 1.2;
+}
+header .logo span { color: var(--muted); }
+header .status {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+}
+header .status b { color: var(--text); }
+
+main { flex: 1; padding: 20px; max-width: 600px; margin: 0 auto; width: 100%; }
+
+/* ── SECTIONS ── */
+.section-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  margin-top: 28px;
+}
+.section-label:first-child { margin-top: 0; }
+
+/* ── UPLOAD ZONE ── */
+#upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  background: var(--surface);
+}
+#upload-zone.drag { border-color: var(--accent); background: rgba(62,166,255,.07); }
+#upload-zone .icon { font-size: 32px; margin-bottom: 10px; }
+#upload-zone p { font-size: 14px; color: var(--muted); }
+#upload-zone p b { color: var(--text); }
+#upload-zone small { font-size: 11px; color: var(--muted); margin-top: 6px; display: block; }
+#file-input { display: none; }
+
+/* ── LIBRARY STATS ── */
+#lib-stats {
+  display: none;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+#lib-stats .stat-row { display: flex; gap: 20px; flex-wrap: wrap; }
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat-val { font-family: var(--mono); font-size: 20px; color: var(--accent); font-weight: 700; }
+.stat-lbl { font-size: 11px; color: var(--muted); }
+
+/* ── RULES ── */
+#rules-container { display: flex; flex-direction: column; gap: 8px; }
+
+.rule {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 12px 14px;
+  position: relative;
+}
+.rule-head {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rule-head span { color: var(--accent); }
+.btn-del-rule {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--red);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 4px;
+  opacity: .7;
+}
+.rule-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.rule-fields input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 7px 10px;
+  width: 100%;
+  outline: none;
+  transition: border-color .15s;
+}
+.rule-fields input:focus { border-color: var(--accent); }
+.rule-fields input::placeholder { color: var(--muted); }
+.rule-fields .full { grid-column: 1 / -1; }
+
+/* ── EXCLUDE SECTION ── */
+.exclude-box {
+  background: #1c1215;
+  border: 1px solid #3d1f24;
+  border-left: 3px solid var(--red);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.exclude-box label { font-size: 12px; color: #f87171; display: block; margin-bottom: 8px; }
+.exclude-box input {
+  background: var(--bg);
+  border: 1px solid #3d1f24;
+  border-radius: 7px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 7px 10px;
+  width: 100%;
+  outline: none;
+}
+.exclude-box input:focus { border-color: var(--red); }
+.exclude-box small { font-size: 10px; color: var(--muted); display: block; margin-top: 6px; }
+
+/* ── BUTTONS ── */
+.btn {
+  border: none;
+  border-radius: 9px;
+  font-family: var(--sans);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s, transform .1s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn:active { transform: scale(.97); opacity: .85; }
+
+.btn-primary {
+  background: var(--accent);
+  color: #000;
+  padding: 14px 20px;
+  font-size: 15px;
+  width: 100%;
+}
+.btn-secondary {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 16px;
+  font-size: 13px;
+}
+.btn-add {
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  padding: 10px;
+  font-size: 13px;
+  width: 100%;
+}
+.btn-add:active { color: var(--text); border-color: var(--accent); }
+
+.btn-row { display: flex; gap: 8px; }
+
+/* ── PLAYER SECTION ── */
+#player-section {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 200;
+  flex-direction: column;
+}
+#player-section.visible { display: flex; }
+
+#player-header {
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#btn-back {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+#player-title {
+  font-size: 13px;
+  font-weight: 600;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+#player-counter {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+#yt-container {
+  background: #000;
+  flex-shrink: 0;
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%; /* 16:9 */
+}
+#yt-container iframe,
+#yt-container > div {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+#player-info {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.now-playing-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.now-playing-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: .1em;
+  margin-bottom: 6px;
+}
+.now-playing-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+.now-playing-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.tag-chip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+.tag-chip.genre  { border-color: #3ea6ff44; color: var(--accent); }
+.tag-chip.mood   { border-color: #a78bfa44; color: var(--accent2); }
+.tag-chip.rating { border-color: #fbbf2444; color: #fbbf24; }
+
+.queue-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: .1em;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.queue-list { display: flex; flex-direction: column; gap: 4px; }
+.queue-item {
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  border: 1px solid transparent;
+}
+.queue-item.current {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--card);
+}
+.queue-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  width: 20px;
+  flex-shrink: 0;
+  text-align: right;
+}
+.queue-item.current .queue-num { color: var(--accent); }
+
+#player-controls {
+  padding: 12px 16px;
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#player-controls .btn { flex: 1; padding: 13px; }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  padding: 10px 18px;
+  border-radius: 50px;
+  z-index: 999;
+  transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+  white-space: nowrap;
+  pointer-events: none;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ── MISC ── */
+.spacer { height: 24px; }
+.divider { height: 1px; background: var(--border); margin: 24px 0; }
+
+#btn-generate { margin-top: 20px; }
+#btn-generate:disabled { opacity: .4; cursor: not-allowed; }
+
+.generating { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.5 } }
+
+.error-msg {
+  background: #1c1215;
+  border: 1px solid #5a2a2a;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #f87171;
+  margin-top: 12px;
+  display: none;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">SMART<br><span>TAGGER</span></div>
+    <div class="status" id="header-status">Sin biblioteca</div>
+  </header>
+
+  <main>
+    <!-- BIBLIOTECA -->
+    <div class="section-label">Biblioteca</div>
+    <div id="upload-zone" onclick="document.getElementById('file-input').click()">
+      <div class="icon">📂</div>
+      <p><b>Subir backup_biblioteca.json</b></p>
+      <small>O arrastrá el archivo acá</small>
+    </div>
+    <input type="file" id="file-input" accept=".json">
+    <div id="lib-stats">
+      <div class="stat-row">
+        <div class="stat"><div class="stat-val" id="stat-total">0</div><div class="stat-lbl">canciones</div></div>
+        <div class="stat"><div class="stat-val" id="stat-genres">0</div><div class="stat-lbl">géneros</div></div>
+        <div class="stat"><div class="stat-val" id="stat-unplayed">0</div><div class="stat-lbl">sin escuchar</div></div>
+      </div>
+    </div>
+
+    <!-- REGLAS -->
+    <div class="section-label" style="margin-top:24px;">Reglas del mix</div>
+    <div id="rules-container"></div>
+    <button class="btn btn-add" id="btn-add-rule" style="margin-top:8px;">+ Agregar regla</button>
+
+    <!-- EXCLUSIONES -->
+    <div class="section-label" style="margin-top:24px;">Exclusiones globales</div>
+    <div class="exclude-box">
+      <label>🚫 Tags a excluir (aplica a todas las reglas)</label>
+      <input type="text" id="exclude-tags" placeholder="ej: Agresivo, Instrumental">
+      <small>Separá con comas. Excluye canciones con cualquiera de estos tags en género, mood u origen.</small>
+    </div>
+
+    <div id="error-msg" class="error-msg"></div>
+
+    <button class="btn btn-primary" id="btn-generate" disabled>▶ GENERAR Y REPRODUCIR</button>
+
+    <!-- BACKUP -->
+    <div class="divider"></div>
+    <div class="section-label">Exportar después de escuchar</div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="btn-export-bib" style="flex:1" disabled>💾 Biblioteca</button>
+      <button class="btn btn-secondary" id="btn-export-hist" style="flex:1" disabled>🕐 Historial</button>
+    </div>
+    <div class="spacer"></div>
+  </main>
+</div>
+
+<!-- PLAYER -->
+<div id="player-section">
+  <div id="player-header">
+    <button id="btn-back">←</button>
+    <div id="player-title">—</div>
+    <div id="player-counter">0 / 0</div>
+  </div>
+  <div id="yt-container"><div id="yt-player"></div></div>
+  <div id="player-info">
+    <div class="now-playing-card">
+      <div class="now-playing-label">▶ SONANDO AHORA</div>
+      <div class="now-playing-title" id="np-title">—</div>
+      <div class="now-playing-tags" id="np-tags"></div>
+    </div>
+    <div class="queue-label">Cola de reproducción</div>
+    <div class="queue-list" id="queue-list"></div>
+  </div>
+  <div id="player-controls">
+    <button class="btn btn-secondary" id="btn-prev">⏮ Anterior</button>
+    <button class="btn btn-secondary" id="btn-skip">Siguiente ⏭</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// ESTADO GLOBAL
+// ═══════════════════════════════════════════
+let db = {};           // biblioteca completa
+let playlist = [];     // IDs en orden
+let currentIdx = -1;
+let ytPlayer = null;
+let ytReady = false;
+let pendingVideoId = null;
+
+// ═══════════════════════════════════════════
+// UTILIDADES
+// ═══════════════════════════════════════════
+function tagMatchea(valorAlmacenado, termino) {
+    if (!termino) return true;
+    const tags = (valorAlmacenado || '').toLowerCase().split(',').map(t => t.trim()).filter(Boolean);
+    return tags.some(t => t.includes(termino.toLowerCase().trim()));
+}
+
+function estaExcluida(song, excl) {
+    if (!excl.length) return false;
+    const campos = [
+        ...(song.genre  || '').toLowerCase().split(',').map(t => t.trim()),
+        ...(song.mood   || '').toLowerCase().split(',').map(t => t.trim()),
+        ...(song.origen || '').toLowerCase().split(',').map(t => t.trim()),
+    ].filter(Boolean);
+    return excl.some(e => campos.some(c => c.includes(e)));
+}
+
+function shuffleInteligente(ids) {
+    const MAX = 2;
+    let arr = [...ids].sort(() => Math.random() - .5);
+    const genDe  = id => (db[id]?.genre  || '').toLowerCase().split(',')[0].trim();
+    const moodDe = id => (db[id]?.mood   || '').toLowerCase().split(',')[0].trim();
+    for (let i = MAX; i < arr.length; i++) {
+        const ventana = arr.slice(i - MAX, i);
+        const g = genDe(arr[i-1]), m = moodDe(arr[i-1]);
+        const rachaG = g && ventana.every(id => genDe(id)  === g);
+        const rachaM = m && ventana.every(id => moodDe(id) === m);
+        if (rachaG || rachaM) {
+            let si = -1;
+            for (let j = i+1; j < arr.length; j++) {
+                if (genDe(arr[j]) !== g && moodDe(arr[j]) !== m) { si = j; break; }
+            }
+            if (si !== -1) { const [x] = arr.splice(si, 1); arr.splice(i, 0, x); }
+        }
+    }
+    return arr;
+}
+
+function normalizarTags(val) {
+    return val.split(',').map(t => t.trim()).filter(Boolean).join(', ');
+}
+
+function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.style.display = msg ? 'block' : 'none';
+}
+
+// ═══════════════════════════════════════════
+// CARGA DE BIBLIOTECA
+// ═══════════════════════════════════════════
+function cargarBiblioteca(data) {
+    db = data;
+    const ids = Object.keys(db);
+    const genres = new Set();
+    let sinEscuchar = 0;
+    ids.forEach(id => {
+        (db[id].genre || '').split(',').forEach(g => { if (g.trim()) genres.add(g.trim().toLowerCase()); });
+        if (!db[id].last_played) sinEscuchar++;
+    });
+    document.getElementById('stat-total').textContent   = ids.length;
+    document.getElementById('stat-genres').textContent  = genres.size;
+    document.getElementById('stat-unplayed').textContent = sinEscuchar;
+    document.getElementById('lib-stats').style.display  = 'block';
+    document.getElementById('upload-zone').style.display = 'none';
+    document.getElementById('btn-generate').disabled = false;
+    document.getElementById('btn-export-bib').disabled  = false;
+    document.getElementById('btn-export-hist').disabled = false;
+    document.getElementById('header-status').innerHTML  = `<b>${ids.length}</b> canciones`;
+    toast(`✓ Biblioteca cargada — ${ids.length} canciones`);
+}
+
+document.getElementById('file-input').onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = ev => {
+        try { cargarBiblioteca(JSON.parse(ev.target.result)); }
+        catch { toast('⚠️ JSON no válido'); }
+    };
+    r.readAsText(f);
+};
+
+const uz = document.getElementById('upload-zone');
+uz.ondragover  = e => { e.preventDefault(); uz.classList.add('drag'); };
+uz.ondragleave = () => uz.classList.remove('drag');
+uz.ondrop = e => {
+    e.preventDefault(); uz.classList.remove('drag');
+    const f = e.dataTransfer.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = ev => { try { cargarBiblioteca(JSON.parse(ev.target.result)); } catch { toast('⚠️ JSON no válido'); } };
+    r.readAsText(f);
+};
+
+// ═══════════════════════════════════════════
+// REGLAS
+// ═══════════════════════════════════════════
+let ruleCount = 0;
+
+function addRule(gen='', mood='', ori='', qty='') {
+    ruleCount++;
+    const div = document.createElement('div');
+    div.className = 'rule';
+    div.innerHTML = `
+        <div class="rule-head"><span>REGLA ${ruleCount}</span>
+            <button class="btn-del-rule" title="Eliminar">✕</button>
+        </div>
+        <div class="rule-fields">
+            <input type="text" placeholder="Género" value="${gen}" class="r-gen">
+            <input type="text" placeholder="Mood"   value="${mood}" class="r-mood">
+            <input type="text" placeholder="Origen" value="${ori}" class="r-ori">
+            <input type="number" placeholder="Cant. (vacío = todo)" value="${qty}" class="r-qty full">
+        </div>`;
+    div.querySelector('.btn-del-rule').onclick = () => div.remove();
+    document.getElementById('rules-container').appendChild(div);
+}
+
+document.getElementById('btn-add-rule').onclick = () => addRule();
+
+// Dos reglas vacías por defecto
+addRule(); addRule();
+
+// ═══════════════════════════════════════════
+// GENERAR PLAYLIST
+// ═══════════════════════════════════════════
+document.getElementById('btn-generate').onclick = () => {
+    showError('');
+    if (!Object.keys(db).length) { showError('Cargá una biblioteca primero.'); return; }
+
+    const excl = (document.getElementById('exclude-tags').value || '')
+        .toLowerCase().split(',').map(t => t.trim()).filter(Boolean);
+
+    const rows = document.querySelectorAll('.rule');
+    const todasVacias = [...rows].every(r =>
+        !r.querySelector('.r-gen').value.trim() &&
+        !r.querySelector('.r-mood').value.trim() &&
+        !r.querySelector('.r-ori').value.trim()
+    );
+
+    let ids = [];
+
+    if (todasVacias) {
+        // Toda la música
+        let todos = Object.keys(db)
+            .filter(id => !estaExcluida(db[id], excl))
+            .map(id => ({ id, last_played: db[id].last_played || 0, rating: parseFloat(db[id].rating) || 0 }));
+        if (!todos.length) { showError('Todas las canciones están excluidas.'); return; }
+        todos.sort((a,b) => a.last_played - b.last_played);
+        todos.forEach(c => {
+            if (c.rating >= 9 && Math.random() < .30) ids.push(c.id);
+            ids.push(c.id);
+        });
+        ids = shuffleInteligente(ids);
+    } else {
+        // Modo con reglas
+        let errores = [];
+        rows.forEach((row, idx) => {
+            const gen  = row.querySelector('.r-gen').value.trim();
+            const mood = row.querySelector('.r-mood').value.trim();
+            const ori  = row.querySelector('.r-ori').value.trim();
+            if (!gen && !mood && !ori) return;
+
+            const cands = Object.keys(db).filter(id => {
+                const s = db[id];
+                return tagMatchea(s.genre, gen) && tagMatchea(s.mood, mood) && tagMatchea(s.origen, ori) && !estaExcluida(s, excl);
+            });
+            if (!cands.length) {
+                const d = [];
+                if (gen)  d.push(`Género:"${gen}"`);
+                if (mood) d.push(`Mood:"${mood}"`);
+                if (ori)  d.push(`Origen:"${ori}"`);
+                errores.push(`Regla ${idx+1} (${d.join(' + ')}): sin coincidencias`);
+            }
+        });
+        if (errores.length) { showError('⚠ ' + errores.join('\n')); return; }
+
+        rows.forEach(row => {
+            const gen    = row.querySelector('.r-gen').value.trim();
+            const mood   = row.querySelector('.r-mood').value.trim();
+            const ori    = row.querySelector('.r-ori').value.trim();
+            const qtyRaw = row.querySelector('.r-qty').value.trim();
+            const qty    = qtyRaw ? (parseInt(qtyRaw) || 0) : Infinity;
+            if (!gen && !mood && !ori) return;
+
+            let cands = Object.keys(db)
+                .filter(id => tagMatchea(db[id].genre, gen) && tagMatchea(db[id].mood, mood) && tagMatchea(db[id].origen, ori) && !estaExcluida(db[id], excl))
+                .map(id => ({ id, last_played: db[id].last_played || 0, rating: parseFloat(db[id].rating) || 0 }));
+            cands.sort((a,b) => a.last_played - b.last_played);
+            const sel = cands.slice(0, qty);
+            sel.forEach(c => {
+                if (c.rating >= 9 && Math.random() < .30) ids.push(c.id);
+                ids.push(c.id);
+            });
+        });
+        if (!ids.length) { showError('No hay canciones que coincidan.'); return; }
+        ids.sort(() => Math.random() - .5);
+    }
+
+    playlist = ids;
+    currentIdx = -1;
+    abrirPlayer();
+    playAt(0);
+};
+
+// ═══════════════════════════════════════════
+// YOUTUBE IFRAME API
+// ═══════════════════════════════════════════
+window.onYouTubeIframeAPIReady = () => {
+    ytReady = true;
+    ytPlayer = new YT.Player('yt-player', {
+        height: '100%',
+        width:  '100%',
+        playerVars: {
+            autoplay: 1,
+            playsinline: 1,
+            rel: 0,
+            modestbranding: 1,
+        },
+        events: {
+            onReady:       onPlayerReady,
+            onStateChange: onPlayerStateChange,
+        }
+    });
+};
+
+function onPlayerReady() {
+    if (pendingVideoId) {
+        ytPlayer.loadVideoById(pendingVideoId);
+        pendingVideoId = null;
+    }
+}
+
+function onPlayerStateChange(e) {
+    if (e.data === YT.PlayerState.ENDED) {
+        // Actualizar last_played del video actual
+        const id = playlist[currentIdx];
+        if (id && db[id]) db[id].last_played = Date.now();
+        // Avanzar
+        if (currentIdx + 1 < playlist.length) playAt(currentIdx + 1);
+        else { toast('✓ Mix terminado'); }
+    }
+}
+
+function cargarVideo(videoId) {
+    if (!ytReady || !ytPlayer || typeof ytPlayer.loadVideoById !== 'function') {
+        pendingVideoId = videoId;
+        return;
+    }
+    ytPlayer.loadVideoById(videoId);
+}
+
+// ═══════════════════════════════════════════
+// CONTROLES DEL PLAYER
+// ═══════════════════════════════════════════
+function playAt(idx) {
+    if (idx < 0 || idx >= playlist.length) return;
+    // Actualizar last_played del anterior
+    if (currentIdx >= 0 && db[playlist[currentIdx]]) {
+        db[playlist[currentIdx]].last_played = Date.now();
+    }
+    currentIdx = idx;
+    const id = playlist[idx];
+    const song = db[id] || {};
+    const title = song.title || id;
+
+    cargarVideo(id);
+    actualizarUI(id, song, title);
+}
+
+function actualizarUI(id, song, title) {
+    // Header
+    document.getElementById('player-title').textContent = title;
+    document.getElementById('player-counter').textContent = `${currentIdx+1} / ${playlist.length}`;
+
+    // Now playing
+    document.getElementById('np-title').textContent = title;
+    const tagsEl = document.getElementById('np-tags');
+    tagsEl.innerHTML = '';
+    if (song.genre)  tagsEl.innerHTML += `<span class="tag-chip genre">${song.genre}</span>`;
+    if (song.mood)   tagsEl.innerHTML += `<span class="tag-chip mood">${song.mood}</span>`;
+    if (song.origen) tagsEl.innerHTML += `<span class="tag-chip">${song.origen}</span>`;
+    if (song.rating) tagsEl.innerHTML += `<span class="tag-chip rating">★ ${song.rating}</span>`;
+    if (song.comment) tagsEl.innerHTML += `<span class="tag-chip" style="font-family:var(--sans);font-size:11px;color:var(--muted);font-style:italic;">💬 ${song.comment}</span>`;
+
+    // Queue
+    const queueEl = document.getElementById('queue-list');
+    queueEl.innerHTML = '';
+    const start = Math.max(0, currentIdx - 2);
+    const end   = Math.min(playlist.length, currentIdx + 8);
+    for (let i = start; i < end; i++) {
+        const qid = playlist[i];
+        const qsong = db[qid] || {};
+        const div = document.createElement('div');
+        div.className = 'queue-item' + (i === currentIdx ? ' current' : '');
+        div.innerHTML = `<div class="queue-num">${i+1}</div><div style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${qsong.title || qid}</div>`;
+        if (i !== currentIdx) div.onclick = () => playAt(i);
+        queueEl.appendChild(div);
+    }
+    // Scroll actual al view
+    const currentEl = queueEl.querySelector('.current');
+    if (currentEl) currentEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function abrirPlayer() {
+    document.getElementById('player-section').classList.add('visible');
+}
+
+document.getElementById('btn-back').onclick = () => {
+    document.getElementById('player-section').classList.remove('visible');
+    if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') ytPlayer.pauseVideo();
+};
+
+document.getElementById('btn-skip').onclick = () => {
+    if (db[playlist[currentIdx]]) db[playlist[currentIdx]].last_played = Date.now();
+    if (currentIdx + 1 < playlist.length) playAt(currentIdx + 1);
+    else toast('Es la última canción');
+};
+
+document.getElementById('btn-prev').onclick = () => {
+    if (currentIdx > 0) playAt(currentIdx - 1);
+    else toast('Es la primera canción');
+};
+
+// ═══════════════════════════════════════════
+// EXPORTAR
+// ═══════════════════════════════════════════
+function descargarJSON(data, nombre) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nombre;
+    a.click();
+}
+
+document.getElementById('btn-export-bib').onclick = () => descargarJSON(db, 'backup_biblioteca.json');
+
+document.getElementById('btn-export-hist').onclick = () => {
+    const hist = {};
+    Object.entries(db).forEach(([id, s]) => { if (s.last_played) hist[id] = s.last_played; });
+    descargarJSON(hist, 'backup_historial.json');
+};
+
+// ═══════════════════════════════════════════
+// CARGAR API DE YOUTUBE
+// ═══════════════════════════════════════════
+const tag = document.createElement('script');
+tag.src = 'https://www.youtube.com/iframe_api';
+document.head.appendChild(tag);
+</script>
+</body>
+</html>
