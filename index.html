@@ -420,6 +420,7 @@ main { flex: 1; padding: 20px; max-width: 600px; margin: 0 auto; width: 100%; }
       <small>O arrastrá el archivo acá</small>
     </div>
     <input type="file" id="file-input" accept=".json">
+    <button class="btn btn-secondary" id="btn-clear-lib" style="display:none;margin-top:8px;width:100%;font-size:12px;color:var(--muted);">🗑 Olvidar biblioteca guardada</button>
     <div id="lib-stats">
       <div class="stat-row">
         <div class="stat"><div class="stat-val" id="stat-total">0</div><div class="stat-lbl">canciones</div></div>
@@ -557,8 +558,11 @@ function showError(msg) {
 // ═══════════════════════════════════════════
 // CARGA DE BIBLIOTECA
 // ═══════════════════════════════════════════
-function cargarBiblioteca(data) {
+function cargarBiblioteca(data, silencioso = false) {
     db = data;
+    // Persistir en localStorage para sobrevivir recargas y cierres del navegador
+    try { localStorage.setItem('smarttagger_db', JSON.stringify(db)); } catch(e) {}
+
     const ids = Object.keys(db);
     const genres = new Set();
     let sinEscuchar = 0;
@@ -566,17 +570,34 @@ function cargarBiblioteca(data) {
         (db[id].genre || '').split(',').forEach(g => { if (g.trim()) genres.add(g.trim().toLowerCase()); });
         if (!db[id].last_played) sinEscuchar++;
     });
-    document.getElementById('stat-total').textContent   = ids.length;
-    document.getElementById('stat-genres').textContent  = genres.size;
+    document.getElementById('stat-total').textContent    = ids.length;
+    document.getElementById('stat-genres').textContent   = genres.size;
     document.getElementById('stat-unplayed').textContent = sinEscuchar;
-    document.getElementById('lib-stats').style.display  = 'block';
+    document.getElementById('lib-stats').style.display   = 'block';
     document.getElementById('upload-zone').style.display = 'none';
-    document.getElementById('btn-generate').disabled = false;
-    document.getElementById('btn-export-bib').disabled  = false;
-    document.getElementById('btn-export-hist').disabled = false;
-    document.getElementById('header-status').innerHTML  = `<b>${ids.length}</b> canciones`;
-    toast(`✓ Biblioteca cargada — ${ids.length} canciones`);
+    document.getElementById('btn-generate').disabled     = false;
+    document.getElementById('btn-export-bib').disabled   = false;
+    document.getElementById('btn-export-hist').disabled  = false;
+    document.getElementById('btn-clear-lib').style.display = 'inline-flex';
+    document.getElementById('header-status').innerHTML   = `<b>${ids.length}</b> canciones`;
+    if (!silencioso) toast(`✓ Biblioteca cargada — ${ids.length} canciones`);
     poblarDataLists();
+}
+
+function guardarDbEnStorage() {
+    try { localStorage.setItem('smarttagger_db', JSON.stringify(db)); } catch(e) {}
+}
+
+function intentarCargarDeStorage() {
+    try {
+        const raw = localStorage.getItem('smarttagger_db');
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (Object.keys(data).length > 0) {
+            cargarBiblioteca(data, true);
+            toast(`✓ Biblioteca restaurada — ${Object.keys(data).length} canciones`);
+        }
+    } catch(e) {}
 }
 
 function poblarDataLists() {
@@ -756,10 +777,11 @@ function onPlayerReady() {
 
 function onPlayerStateChange(e) {
     if (e.data === YT.PlayerState.ENDED) {
-        // Actualizar last_played del video actual
         const id = playlist[currentIdx];
-        if (id && db[id]) db[id].last_played = Date.now();
-        // Avanzar
+        if (id && db[id]) {
+            db[id].last_played = Date.now();
+            guardarDbEnStorage();
+        }
         if (currentIdx + 1 < playlist.length) playAt(currentIdx + 1);
         else { toast('✓ Mix terminado'); }
     }
@@ -778,9 +800,10 @@ function cargarVideo(videoId) {
 // ═══════════════════════════════════════════
 function playAt(idx) {
     if (idx < 0 || idx >= playlist.length) return;
-    // Actualizar last_played del anterior
+    // Actualizar last_played del anterior y persistir
     if (currentIdx >= 0 && db[playlist[currentIdx]]) {
         db[playlist[currentIdx]].last_played = Date.now();
+        guardarDbEnStorage();
     }
     currentIdx = idx;
     const id = playlist[idx];
@@ -863,6 +886,30 @@ document.getElementById('btn-export-hist').onclick = () => {
     Object.entries(db).forEach(([id, s]) => { if (s.last_played) hist[id] = s.last_played; });
     descargarJSON(hist, 'backup_historial.json');
 };
+
+// ═══════════════════════════════════════════
+// LIMPIAR BIBLIOTECA GUARDADA
+// ═══════════════════════════════════════════
+document.getElementById('btn-clear-lib').onclick = () => {
+    if (!confirm('¿Olvidar la biblioteca guardada? Tendrás que volver a subir el JSON.')) return;
+    try { localStorage.removeItem('smarttagger_db'); } catch(e) {}
+    db = {};
+    playlist = [];
+    currentIdx = -1;
+    document.getElementById('lib-stats').style.display   = 'none';
+    document.getElementById('upload-zone').style.display = 'block';
+    document.getElementById('btn-generate').disabled     = true;
+    document.getElementById('btn-export-bib').disabled   = true;
+    document.getElementById('btn-export-hist').disabled  = true;
+    document.getElementById('btn-clear-lib').style.display = 'none';
+    document.getElementById('header-status').innerHTML   = 'Sin biblioteca';
+    toast('Biblioteca olvidada');
+};
+
+// ═══════════════════════════════════════════
+// INICIO: intentar restaurar desde localStorage
+// ═══════════════════════════════════════════
+intentarCargarDeStorage();
 
 // ═══════════════════════════════════════════
 // CARGAR API DE YOUTUBE
